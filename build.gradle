@@ -8,6 +8,7 @@ buildscript {
         google()
         mavenCentral()
     }
+    apply from: 'config.gradle'
     dependencies {
         classpath 'com.android.tools.build:gradle:4.1.3'
 

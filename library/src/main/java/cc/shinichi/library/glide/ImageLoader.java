@@ -36,6 +36,9 @@ public class ImageLoader {
      * 缓存模式必须是：DiskCacheStrategy.SOURCE 才能获取到缓存文件
      */
     public static File getGlideCacheFile(Context context, String url) {
+        if (TextUtils.isEmpty(url)) {
+            return null;
+        }
         try {
             DataCacheKey dataCacheKey;
 

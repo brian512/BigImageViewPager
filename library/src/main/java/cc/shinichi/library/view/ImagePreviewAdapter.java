@@ -1,10 +1,12 @@
 package cc.shinichi.library.view;
 
 import android.annotation.SuppressLint;
+import android.app.Activity;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
+import android.text.TextUtils;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
@@ -277,22 +279,26 @@ public class ImagePreviewAdapter extends PagerAdapter {
         imageHashMap.remove(originPathUrl);
         imageHashMap.put(originPathUrl + "_" + position, imageView);
 
-        ImagePreview.LoadStrategy loadStrategy = ImagePreview.getInstance().getLoadStrategy();
-        // 根据当前加载策略判断，需要加载的url是哪一个
-        if (loadStrategy == ImagePreview.LoadStrategy.Default) {
-            finalLoadUrl = thumbPathUrl;
-        } else if (loadStrategy == ImagePreview.LoadStrategy.AlwaysOrigin) {
-            finalLoadUrl = originPathUrl;
-        } else if (loadStrategy == ImagePreview.LoadStrategy.AlwaysThumb) {
-            finalLoadUrl = thumbPathUrl;
-        } else if (loadStrategy == ImagePreview.LoadStrategy.NetworkAuto) {
-            if (NetworkUtil.isWiFi(activity)) {
-                finalLoadUrl = originPathUrl;
-            } else {
+        if (TextUtils.isEmpty(thumbPathUrl) || TextUtils.equals(thumbPathUrl, originPathUrl)) {
+            finalLoadUrl = originPathUrl.trim();
+        } else {
+            ImagePreview.LoadStrategy loadStrategy = ImagePreview.getInstance().getLoadStrategy();
+            // 根据当前加载策略判断，需要加载的url是哪一个
+            if (loadStrategy == ImagePreview.LoadStrategy.Default) {
                 finalLoadUrl = thumbPathUrl;
+            } else if (loadStrategy == ImagePreview.LoadStrategy.AlwaysOrigin) {
+                finalLoadUrl = originPathUrl;
+            } else if (loadStrategy == ImagePreview.LoadStrategy.AlwaysThumb) {
+                finalLoadUrl = thumbPathUrl;
+            } else if (loadStrategy == ImagePreview.LoadStrategy.NetworkAuto) {
+                if (NetworkUtil.isWiFi(activity)) {
+                    finalLoadUrl = originPathUrl;
+                } else {
+                    finalLoadUrl = thumbPathUrl;
+                }
             }
+            finalLoadUrl = finalLoadUrl.trim();
         }
-        finalLoadUrl = finalLoadUrl.trim();
         final String url = finalLoadUrl;
 
         // 显示加载圈圈
@@ -309,47 +315,53 @@ public class ImagePreviewAdapter extends PagerAdapter {
                 loadImageSpec(url, imagePath, imageView, imageGif, progressBar);
             }
         } else {
-            Glide.with(activity).downloadOnly().load(url).addListener(new RequestListener<File>() {
-                @Override
-                public boolean onLoadFailed(@Nullable GlideException e, Object model, Target<File> target,
-                                            boolean isFirstResource) {
-                    new Thread(new Runnable() {
-                        @Override
-                        public void run() {
-                            String fileFullName = String.valueOf(System.currentTimeMillis());
-                            String saveDir = FileUtil.getAvailableCacheDir(activity).getAbsolutePath() + File.separator + "image/";
-                            File downloadFile = HttpUtil.downloadFile(url, fileFullName, saveDir);
-                            new Handler(Looper.getMainLooper()).post(new Runnable() {
-                                @Override
-                                public void run() {
-                                    if (downloadFile != null && downloadFile.exists() && downloadFile.length() > 0) {
-                                        // 通过urlConn下载完成
-                                        loadSuccess(originPathUrl, downloadFile, imageView, imageGif, progressBar);
-                                    } else {
-                                        loadFailed(imageView, imageGif, progressBar, e);
+            if (checkActivity(activity)) {
+                Glide.with(activity).downloadOnly().load(url).addListener(new RequestListener<File>() {
+                    @Override
+                    public boolean onLoadFailed(@Nullable GlideException e, Object model, Target<File> target,
+                                                boolean isFirstResource) {
+                        new Thread(new Runnable() {
+                            @Override
+                            public void run() {
+                                String fileFullName = String.valueOf(System.currentTimeMillis());
+                                String saveDir = FileUtil.getAvailableCacheDir(activity).getAbsolutePath() + File.separator + "image/";
+                                File downloadFile = HttpUtil.downloadFile(url, fileFullName, saveDir);
+                                new Handler(Looper.getMainLooper()).post(new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        if (downloadFile != null && downloadFile.exists() && downloadFile.length() > 0) {
+                                            // 通过urlConn下载完成
+                                            loadSuccess(originPathUrl, downloadFile, imageView, imageGif, progressBar);
+                                        } else {
+                                            loadFailed(imageView, imageGif, progressBar, e);
+                                        }
                                     }
-                                }
-                            });
-                        }
-                    }).start();
-                    return true;
-                }
+                                });
+                            }
+                        }).start();
+                        return true;
+                    }
 
-                @Override
-                public boolean onResourceReady(File resource, Object model, Target<File> target, DataSource dataSource,
-                                               boolean isFirstResource) {
-                    loadSuccess(url, resource, imageView, imageGif, progressBar);
-                    return true;
-                }
-            }).into(new FileTarget() {
-                @Override
-                public void onLoadStarted(@Nullable Drawable placeholder) {
-                    super.onLoadStarted(placeholder);
-                }
-            });
+                    @Override
+                    public boolean onResourceReady(File resource, Object model, Target<File> target, DataSource dataSource,
+                                                   boolean isFirstResource) {
+                        loadSuccess(url, resource, imageView, imageGif, progressBar);
+                        return true;
+                    }
+                }).into(new FileTarget() {
+                    @Override
+                    public void onLoadStarted(@Nullable Drawable placeholder) {
+                        super.onLoadStarted(placeholder);
+                    }
+                });
+            }
         }
         container.addView(convertView);
         return convertView;
+    }
+
+    private boolean checkActivity(Activity activity) {
+        return activity != null && !activity.isFinishing() && !activity.isDestroyed();
     }
 
     @Override
@@ -457,6 +469,9 @@ public class ImagePreviewAdapter extends PagerAdapter {
         imageSpec.setVisibility(View.VISIBLE);
         imageView.setVisibility(View.GONE);
 
+        if (activity == null || activity.isFinishing() || activity.isDestroyed()) {
+            return;
+        }
         boolean isGifFile = ImageUtil.isGifImageWithMime(imageUrl, imagePath);
         if (isGifFile) {
             Glide.with(activity)
