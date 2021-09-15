@@ -1,7 +1,5 @@
 package cc.shinichi.library.view;
 
-import static androidx.core.content.PermissionChecker.PERMISSION_GRANTED;
-
 import android.Manifest;
 import android.app.Activity;
 import android.app.ActivityOptions;
@@ -48,6 +46,8 @@ import cc.shinichi.library.tool.common.HandlerUtils;
 import cc.shinichi.library.tool.image.DownloadPictureUtil;
 import cc.shinichi.library.tool.ui.ToastUtil;
 import cc.shinichi.library.view.listener.OnDownloadClickListener;
+
+import static androidx.core.content.PermissionChecker.PERMISSION_GRANTED;
 
 /**
  * @author 工藤
@@ -163,6 +163,12 @@ public class ImagePreviewActivity extends AppCompatActivity implements Handler.C
         isShowDownButton = ImagePreview.getInstance().isShowDownButton();
         isShowCloseButton = ImagePreview.getInstance().isShowCloseButton();
         isShowIndicator = ImagePreview.getInstance().isShowIndicator();
+
+        if (isShowDownButton) {
+            getWindow().clearFlags(WindowManager.LayoutParams.FLAG_SECURE);
+        } else {
+            getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
+        }
 
         currentItemOriginPathUrl = imageInfoList.get(currentItem).getOriginUrl();
 
@@ -495,6 +501,7 @@ public class ImagePreviewActivity extends AppCompatActivity implements Handler.C
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
                                            @NonNull int[] grantResults) {
+//        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == 1) {
             for (int i = 0; i < permissions.length; i++) {
                 if (grantResults[i] == PERMISSION_GRANTED) {
